@@ -17,7 +17,14 @@ app.get("/",(req,res)=>{
     res.send("backend running fine")
 })
 
-app.post("/allocate",(req,res)=>{
+
+
+app.post("/shorten",(req,res)=>{
+    const {longURL} = req.body;
+
+    if(!longURL){
+        return res.status(400).json({message:"no url found"})
+    }
     const sql_query = `
         SELECT * FROM ranges
         WHERE current < end
@@ -36,7 +43,7 @@ app.post("/allocate",(req,res)=>{
         }
         const result = results[0];
         const allocatedId = result.current;
-        
+        const shortCode = encode(allocatedId)
         const update_query = `UPDATE ranges SET current = current+1 WHERE id = ?`
 
         db.query(update_query,[result.id],(err,response)=>{
@@ -44,8 +51,35 @@ app.post("/allocate",(req,res)=>{
                 console.log("error in updating")
                 return res.json({msg : "error in updating"})
             }
-            const encodedString = encode(allocatedId)
-            return res.json({allocatedId,encodedString})
+
+            const insertIntoMap = `INSERT INTO url_maps (code,long_url)
+                                    VALUES (?,?)`
+
+            db.query(insertIntoMap,[shortCode,longURL],(error3)=>{
+                if(error3){
+                    console.log("error into inserting into url_map")
+                    return res.status(400).json({message : "occur occured"})
+                }
+                return res.status(200).json({shortUrl : `http://localhost:8000/${shortCode}`})
+            })
+
+            
         })
+    })
+})
+
+app.get("/:code",(req,res)=>{
+    const {code} = req.params;
+
+    const findQuery = `SELECT long_url FROM url_maps WHERE code = ?`;
+
+    db.query(findQuery,[code],(err,result)=>{
+        if(err){
+            return res.status(400).json({message:"no short url found"})
+        }
+        if(result.length === 0){
+            return res.status(400).json({message:"no short url found"});;
+        }
+        return res.redirect(result[0].long_url)
     })
 })
