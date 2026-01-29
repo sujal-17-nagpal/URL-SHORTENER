@@ -84,6 +84,8 @@ app.get("/:code", async (req, res) => {
       return res.status(404).send("short url not found");
     }
 
+    await db.query(`UPDATE url_maps SET clicks = clicks+1 WHERE code = ?`,[code])
+
     return res.redirect(rows[0].long_url);
   } catch (err) {
     return res.status(500).send("server error");
